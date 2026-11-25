@@ -1,9 +1,12 @@
-
 package com.minilox;
 
+import com.minilox.ast.AstPrinter;
+import com.minilox.ast.Stmt;
 import com.minilox.error.MiniLoxException;
+import com.minilox.error.ParseException;
 import com.minilox.lexer.Lexer;
 import com.minilox.lexer.Token;
+import com.minilox.parser.Parser;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -22,14 +25,20 @@ public class MiniLox {
             String source = Files.readString(Path.of(args[0]));
             List<Token> tokens = new Lexer(source).scanTokens();
 
-            for (Token token : tokens) {
-                System.out.println(token);
+            Parser parser = new Parser(tokens);
+            List<Stmt> statements = parser.parse();
+
+            if (!parser.getErrors().isEmpty()) {
+                for (ParseException error : parser.getErrors()) {
+                    System.err.println(error.report());
+                }
+                System.exit(65);
             }
 
+            System.out.println(new AstPrinter().printProgram(statements));
         } catch (IOException e) {
             System.err.println("Could not read file: " + e.getMessage());
             System.exit(66);
-
         } catch (MiniLoxException e) {
             System.err.println(e.report());
             System.exit(65);
