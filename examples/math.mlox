@@ -1,0 +1,11 @@
+print "Hello, MiniLox!";
+print 2 + 3 * 4;
+print (2 + 3) * 4;
+print 10 / 4;
+print 10 % 3;
+print "Total: " + 5 * 2;
+print 3 > 2;
+print 1 == 1.0;
+print null or "default";
+print !false and 7 > 3;
+print false and 1 / 0;

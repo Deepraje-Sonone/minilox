@@ -14,7 +14,10 @@ public class MiniLoxException extends RuntimeException {
         return line;
     }
 
-    public String report() {
-        return "[line " + line + "] Error: " + getMessage();
+        public String report() {
+        if (line > 0) {
+            return "[line " + line + "] Error: " + getMessage();
+        }
+        return "Error: " + getMessage();
     }
 }
