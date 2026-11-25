@@ -132,4 +132,14 @@ class InterpreterTest {
     void errorsCarryTheLineNumber() {
         assertEquals(2, runtimeError("print 1;\nprint 2 / 0;").getLine());
     }
+
+    @Test
+void stringConcatenationIsLeftAssociativeWithStringFirst() {
+    assertEquals("a12", run("print \"a\" + 1 + 2;"));
+}
+
+@Test
+void stringConcatenationIsLeftAssociativeWithStringLast() {
+    assertEquals("3a", run("print 1 + 2 + \"a\";"));
+}
 }
