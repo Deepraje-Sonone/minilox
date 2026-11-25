@@ -1,18 +1,38 @@
 
 package com.minilox;
 
+import com.minilox.error.MiniLoxException;
+import com.minilox.lexer.Lexer;
+import com.minilox.lexer.Token;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+
 public class MiniLox {
 
     public static void main(String[] args) {
+        if (args.length != 1) {
+            System.out.println("Usage: java com.minilox.MiniLox <script.mlox>");
+            return;
+        }
 
-        System.out.println("MiniLox interpreter v0.1");
-        System.out.println("Arguments received: " + args.length);
+        try {
+            String source = Files.readString(Path.of(args[0]));
+            List<Token> tokens = new Lexer(source).scanTokens();
 
-        int number = 1;
+            for (Token token : tokens) {
+                System.out.println(token);
+            }
 
-        for (String arg : args) {
-            System.out.println("Argument " + number + ": " + arg);
-            number++;
+        } catch (IOException e) {
+            System.err.println("Could not read file: " + e.getMessage());
+            System.exit(66);
+
+        } catch (MiniLoxException e) {
+            System.err.println(e.report());
+            System.exit(65);
         }
     }
 }
