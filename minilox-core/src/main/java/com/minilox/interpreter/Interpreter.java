@@ -12,10 +12,9 @@ import java.util.function.Consumer;
 
 public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
 
-    private final Consumer<String> output;
-
-    // Phase 5: stores variables in the current scope.
     private Environment environment = new Environment();
+
+    private final Consumer<String> output;
 
     public Interpreter() {
         this(System.out::println);
@@ -26,20 +25,24 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     }
 
     public void interpret(List<Stmt> statements) {
-        for (Stmt statement : statements) {
-            execute(statement);
+        try {
+            for (Stmt statement : statements) {
+                execute(statement);
+            }
+        } catch (RuntimeError error) {
+            throw error;
         }
     }
 
-    private void execute(Stmt stmt) {
-        stmt.accept(this);
+    private void execute(Stmt statement) {
+        statement.accept(this);
     }
 
-    private Object evaluate(Expr expr) {
-        return expr.accept(this);
+    private Object evaluate(Expr expression) {
+        return expression.accept(this);
     }
 
-    // ---------- Literal and grouping expressions ----------
+    // ---------- expressions ----------
 
     @Override
     public Object visitLiteralExpr(Expr.Literal expr) {
@@ -51,25 +54,85 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
         return evaluate(expr.expression());
     }
 
-    // ---------- Unary expressions ----------
+    @Override
+public Object visitUnaryExpr(Expr.Unary expr) {
+    Object right = evaluate(expr.right());
+
+    return switch (expr.operator().type()) {
+        case BANG -> !isTruthy(right);
+        case MINUS -> {
+            if (!(right instanceof Double number)) {
+                throw new RuntimeError(expr.operator().line(),
+                        "Operand must be a number.");
+            }
+            yield -number;
+        }
+        default -> null;
+    };
+}
 
     @Override
-    public Object visitUnaryExpr(Expr.Unary expr) {
+    public Object visitBinaryExpr(Expr.Binary expr) {
+        Object left = evaluate(expr.left());
         Object right = evaluate(expr.right());
-        Token op = expr.operator();
 
-        if (op.type() == TokenType.BANG) {
-            return !isTruthy(right);
-        }
+        return switch (expr.operator().type()) {
+            case MINUS -> requireNumber(expr.operator(), left)
+                    - requireNumber(expr.operator(), right);
 
-        if (right instanceof Double d) {
-            return -d;
-        }
+            case SLASH -> {
+                double divisor = requireNumber(expr.operator(), right);
+                if (divisor == 0) {
+                    throw new RuntimeError(expr.operator().line(),
+                            "Division by zero.");
+                }
+                yield requireNumber(expr.operator(), left) / divisor;
+            }
 
-        throw new RuntimeError(op.line(), "Operand must be a number.");
+            case STAR -> requireNumber(expr.operator(), left)
+                    * requireNumber(expr.operator(), right);
+
+            case PERCENT -> {
+            double divisor = requireNumber(expr.operator(), right);
+             if (divisor == 0) {
+            throw new RuntimeError(expr.operator().line(),
+                "Modulo by zero.");
+             }
+             yield requireNumber(expr.operator(), left) % divisor;
+            }
+
+            case PLUS -> {
+                if (left instanceof Double && right instanceof Double) {
+                    yield (double) left + (double) right;
+                }
+
+                if (left instanceof String || right instanceof String) {
+                    yield stringify(left) + stringify(right);
+                }
+
+                throw new RuntimeError(expr.operator().line(),
+                        "Operands must be two numbers or at least one string.");
+            }
+
+            case GREATER -> requireNumber(expr.operator(), left)
+                    > requireNumber(expr.operator(), right);
+
+            case GREATER_EQUAL -> requireNumber(expr.operator(), left)
+                    >= requireNumber(expr.operator(), right);
+
+            case LESS -> requireNumber(expr.operator(), left)
+                    < requireNumber(expr.operator(), right);
+
+            case LESS_EQUAL -> requireNumber(expr.operator(), left)
+                    <= requireNumber(expr.operator(), right);
+
+            case BANG_EQUAL -> !isEqual(left, right);
+
+            case EQUAL_EQUAL -> isEqual(left, right);
+
+            default -> null;
+        };
     }
-
-    // ---------- Logical expressions ----------
 
     @Override
     public Object visitLogicalExpr(Expr.Logical expr) {
@@ -88,79 +151,6 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
         return evaluate(expr.right());
     }
 
-    // ---------- Binary expressions ----------
-
-    @Override
-    public Object visitBinaryExpr(Expr.Binary expr) {
-        Object left = evaluate(expr.left());
-        Object right = evaluate(expr.right());
-        Token op = expr.operator();
-
-        return switch (op.type()) {
-
-            case PLUS -> add(op, left, right);
-
-            case MINUS -> {
-                checkNumberOperands(op, left, right);
-                yield asNumber(left) - asNumber(right);
-            }
-
-            case STAR -> {
-                checkNumberOperands(op, left, right);
-                yield asNumber(left) * asNumber(right);
-            }
-
-            case SLASH -> {
-                checkNumberOperands(op, left, right);
-
-                if (asNumber(right) == 0) {
-                    throw new RuntimeError(op.line(), "Division by zero.");
-                }
-
-                yield asNumber(left) / asNumber(right);
-            }
-
-            case PERCENT -> {
-                checkNumberOperands(op, left, right);
-
-                if (asNumber(right) == 0) {
-                    throw new RuntimeError(op.line(), "Modulo by zero.");
-                }
-
-                yield asNumber(left) % asNumber(right);
-            }
-
-            case GREATER -> {
-                checkNumberOperands(op, left, right);
-                yield asNumber(left) > asNumber(right);
-            }
-
-            case GREATER_EQUAL -> {
-                checkNumberOperands(op, left, right);
-                yield asNumber(left) >= asNumber(right);
-            }
-
-            case LESS -> {
-                checkNumberOperands(op, left, right);
-                yield asNumber(left) < asNumber(right);
-            }
-
-            case LESS_EQUAL -> {
-                checkNumberOperands(op, left, right);
-                yield asNumber(left) <= asNumber(right);
-            }
-
-            case EQUAL_EQUAL -> isEqual(left, right);
-
-            case BANG_EQUAL -> !isEqual(left, right);
-
-            default -> throw new IllegalStateException(
-                    "Unexpected binary operator: " + op.type());
-        };
-    }
-
-    // ---------- Variables and scope (Phase 5) ----------
-
     @Override
     public Object visitVariableExpr(Expr.Variable expr) {
         return environment.get(expr.name());
@@ -169,11 +159,23 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     @Override
     public Object visitAssignExpr(Expr.Assign expr) {
         Object value = evaluate(expr.value());
-
         environment.assign(expr.name(), value);
-
-        // Assignment is an expression, so it returns the assigned value.
         return value;
+    }
+
+    // ---------- statements ----------
+
+    @Override
+    public Void visitExpressionStmt(Stmt.Expression stmt) {
+        evaluate(stmt.expression());
+        return null;
+    }
+
+    @Override
+    public Void visitPrintStmt(Stmt.Print stmt) {
+        Object value = evaluate(stmt.expression());
+        output.accept(stringify(value));
+        return null;
     }
 
     @Override
@@ -185,7 +187,6 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
         }
 
         environment.define(stmt.name().lexeme(), value);
-
         return null;
     }
 
@@ -205,85 +206,62 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
                 execute(statement);
             }
         } finally {
-            // Always restore the previous scope.
             this.environment = previous;
         }
     }
 
-    // ---------- Statements ----------
-
-    @Override
-    public Void visitExpressionStmt(Stmt.Expression stmt) {
-        evaluate(stmt.expression());
-        return null;
-    }
-
-    @Override
-    public Void visitPrintStmt(Stmt.Print stmt) {
-        Object value = evaluate(stmt.expression());
-        output.accept(stringify(value));
-        return null;
-    }
-
-    // ---------- Stubs: replaced in later phases ----------
-
-    @Override
-    public Object visitCallExpr(Expr.Call expr) {
-        throw notImplemented(expr.paren().line(), "Function calls", 7);
-    }
+    // ---------- control flow (Phase 6) ----------
 
     @Override
     public Void visitIfStmt(Stmt.If stmt) {
-        throw notImplemented(0, "if statements", 6);
+        if (isTruthy(evaluate(stmt.condition()))) {
+            execute(stmt.thenBranch());
+        } else if (stmt.elseBranch() != null) {
+            execute(stmt.elseBranch());
+        }
+
+        return null;
     }
 
     @Override
     public Void visitWhileStmt(Stmt.While stmt) {
-        throw notImplemented(0, "Loops", 6);
+        while (isTruthy(evaluate(stmt.condition()))) {
+            execute(stmt.body());
+        }
+
+        return null;
+    }
+
+    // ---------- remaining stubs: Phase 7 ----------
+
+    @Override
+    public Object visitCallExpr(Expr.Call expr) {
+        throw notImplemented(expr.paren().line(), "Function calls");
     }
 
     @Override
     public Void visitFunctionStmt(Stmt.Function stmt) {
-        throw notImplemented(stmt.name().line(), "Function declarations", 7);
+        throw notImplemented(stmt.name().line(), "Function declarations");
     }
 
     @Override
     public Void visitReturnStmt(Stmt.Return stmt) {
-        throw notImplemented(stmt.keyword().line(), "return", 7);
+        throw notImplemented(stmt.keyword().line(), "Return statements");
     }
 
-    private RuntimeError notImplemented(int line, String feature, int phase) {
-        return new RuntimeError(
-                line,
-                feature + " are not implemented yet (Phase " + phase + ").");
+    private RuntimeError notImplemented(int line, String feature) {
+        return new RuntimeError(line, feature + " are not implemented yet.");
     }
 
-    // ---------- Helper methods ----------
+    // ---------- helpers ----------
 
-    private Object add(Token op, Object left, Object right) {
-        if (left instanceof Double l && right instanceof Double r) {
-            return l + r;
+    private double requireNumber(Token operator, Object value) {
+        if (value instanceof Double number) {
+            return number;
         }
 
-        if (left instanceof String || right instanceof String) {
-            return stringify(left) + stringify(right);
-        }
-
-        throw new RuntimeError(
-                op.line(),
-                "Operands must be two numbers or at least one string.");
-    }
-
-    private void checkNumberOperands(Token operator, Object left, Object right) {
-        if (left instanceof Double && right instanceof Double) {
-            return;
-        }
-
-        throw new RuntimeError(operator.line(), "Operands must be numbers.");
-    }
-
-    private double asNumber(Object value) {
-        return (Double) value;
+        throw new RuntimeError(operator.line(),
+                "Operands must be numbers.");
     }
 
     private boolean isTruthy(Object value) {
@@ -291,8 +269,8 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
             return false;
         }
 
-        if (value instanceof Boolean b) {
-            return b;
+        if (value instanceof Boolean bool) {
+            return bool;
         }
 
         return true;
@@ -307,24 +285,22 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
             return false;
         }
 
-        if (a instanceof Double x && b instanceof Double y) {
-            return x.doubleValue() == y.doubleValue();
-        }
-
         return a.equals(b);
     }
 
-    public static String stringify(Object value) {
+    private String stringify(Object value) {
         if (value == null) {
             return "null";
         }
 
-        if (value instanceof Double d) {
-            if (d == Math.rint(d) && Math.abs(d) < 1e15) {
-                return String.valueOf(d.longValue());
+        if (value instanceof Double number) {
+            String text = number.toString();
+
+            if (text.endsWith(".0")) {
+                return text.substring(0, text.length() - 2);
             }
 
-            return d.toString();
+            return text;
         }
 
         return value.toString();

@@ -1,0 +1,9 @@
+for (let n = 2; n <= 30; n = n + 1) {
+  let isPrime = true;
+  for (let d = 2; d * d <= n; d = d + 1) {
+    if (n % d == 0) {
+      isPrime = false;
+    }
+  }
+  if (isPrime) print n;
+}
