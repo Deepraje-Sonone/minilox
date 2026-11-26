@@ -1,7 +1,9 @@
+
 package com.minilox.interpreter;
 
 import com.minilox.ast.Expr;
 import com.minilox.ast.Stmt;
+import com.minilox.error.LimitExceededException;
 import com.minilox.error.RuntimeError;
 import com.minilox.lexer.Token;
 import com.minilox.lexer.TokenType;
@@ -15,34 +17,69 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     public static final int DEFAULT_MAX_CALL_DEPTH = 200;
 
     private final Consumer<String> output;
-    private final int maxCallDepth;
+    private final RunLimits limits;
 
     private final Environment globals = new Environment();
     private Environment environment = globals;
     private int callDepth = 0;
+
+    private long steps = 0;
+    private boolean hasDeadline = false;
+    private long deadlineNanos = 0;
 
     public Interpreter() {
         this(System.out::println);
     }
 
     public Interpreter(Consumer<String> output) {
-        this(output, DEFAULT_MAX_CALL_DEPTH);
+        this(output, RunLimits.unlimited());
     }
 
+    // Kept for backward compatibility with existing code.
     public Interpreter(Consumer<String> output, int maxCallDepth) {
+        this(output, RunLimits.unlimited().withMaxCallDepth(maxCallDepth));
+    }
+
+    public Interpreter(Consumer<String> output, RunLimits limits) {
         this.output = output;
-        this.maxCallDepth = maxCallDepth;
+        this.limits = limits;
         defineNativeFunctions();
     }
 
     public void interpret(List<Stmt> statements) {
+        if (limits.timeoutMillis() != Long.MAX_VALUE) {
+            hasDeadline = true;
+            deadlineNanos = System.nanoTime()
+                    + limits.timeoutMillis() * 1_000_000L;
+        }
+
         for (Stmt statement : statements) {
             execute(statement);
         }
     }
 
     private void execute(Stmt stmt) {
+        checkLimits();
         stmt.accept(this);
+    }
+
+    private void checkLimits() {
+        steps++;
+
+        if (steps > limits.maxSteps()) {
+            throw new LimitExceededException(
+                    "Step limit exceeded (" + limits.maxSteps()
+                            + " steps). Is there an infinite loop?");
+        }
+
+        // Check the clock every 1024 statements to reduce overhead.
+        if (hasDeadline
+                && (steps & 1023) == 0
+                && System.nanoTime() - deadlineNanos > 0) {
+
+            throw new LimitExceededException(
+                    "Time limit exceeded (" + limits.timeoutMillis() + " ms).");
+        }
     }
 
     private Object evaluate(Expr expr) {
@@ -53,7 +90,15 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
 
     @Override
     public Object visitLiteralExpr(Expr.Literal expr) {
-        return expr.value();
+        Object value = expr.value();
+
+        if (value instanceof String s && s.length() > limits.maxStringLength()) {
+            throw new LimitExceededException(
+                    "String length limit exceeded ("
+                            + limits.maxStringLength() + " characters).");
+        }
+
+        return value;
     }
 
     @Override
@@ -69,10 +114,11 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
         if (op.type() == TokenType.BANG) {
             return !isTruthy(right);
         }
-        // otherwise it's MINUS
+
         if (right instanceof Double d) {
             return -d;
         }
+
         throw new RuntimeError(op.line(), "Operand must be a number.");
     }
 
@@ -81,10 +127,11 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
         Object left = evaluate(expr.left());
 
         if (expr.operator().type() == TokenType.OR) {
-            if (isTruthy(left)) return left;      // short-circuit
+            if (isTruthy(left)) return left;
         } else {
-            if (!isTruthy(left)) return left;     // short-circuit (AND)
+            if (!isTruthy(left)) return left;
         }
+
         return evaluate(expr.right());
     }
 
@@ -96,47 +143,63 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
 
         return switch (op.type()) {
             case PLUS -> add(op, left, right);
+
             case MINUS -> {
                 checkNumberOperands(op, left, right);
                 yield asNumber(left) - asNumber(right);
             }
+
             case STAR -> {
                 checkNumberOperands(op, left, right);
                 yield asNumber(left) * asNumber(right);
             }
+
             case SLASH -> {
                 checkNumberOperands(op, left, right);
+
                 if (asNumber(right) == 0) {
                     throw new RuntimeError(op.line(), "Division by zero.");
                 }
+
                 yield asNumber(left) / asNumber(right);
             }
+
             case PERCENT -> {
                 checkNumberOperands(op, left, right);
+
                 if (asNumber(right) == 0) {
                     throw new RuntimeError(op.line(), "Modulo by zero.");
                 }
+
                 yield asNumber(left) % asNumber(right);
             }
+
             case GREATER -> {
                 checkNumberOperands(op, left, right);
                 yield asNumber(left) > asNumber(right);
             }
+
             case GREATER_EQUAL -> {
                 checkNumberOperands(op, left, right);
                 yield asNumber(left) >= asNumber(right);
             }
+
             case LESS -> {
                 checkNumberOperands(op, left, right);
                 yield asNumber(left) < asNumber(right);
             }
+
             case LESS_EQUAL -> {
                 checkNumberOperands(op, left, right);
                 yield asNumber(left) <= asNumber(right);
             }
+
             case EQUAL_EQUAL -> isEqual(left, right);
+
             case BANG_EQUAL -> !isEqual(left, right);
-            default -> throw new IllegalStateException("Unexpected binary operator: " + op.type());
+
+            default -> throw new IllegalStateException(
+                    "Unexpected binary operator: " + op.type());
         };
     }
 
@@ -157,24 +220,31 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
         Object callee = evaluate(expr.callee());
 
         List<Object> arguments = new ArrayList<>();
+
         for (Expr argument : expr.arguments()) {
             arguments.add(evaluate(argument));
         }
 
         int line = expr.paren().line();
+
         if (!(callee instanceof MiniLoxCallable function)) {
             throw new RuntimeError(line, "Can only call functions.");
         }
+
         if (arguments.size() != function.arity()) {
-            throw new RuntimeError(line, "Expected " + function.arity()
-                    + " arguments but got " + arguments.size() + ".");
-        }
-        if (callDepth >= maxCallDepth) {
             throw new RuntimeError(line,
-                    "Stack overflow: maximum call depth (" + maxCallDepth + ") exceeded.");
+                    "Expected " + function.arity()
+                            + " arguments but got " + arguments.size() + ".");
+        }
+
+        if (callDepth >= limits.maxCallDepth()) {
+            throw new RuntimeError(line,
+                    "Stack overflow: maximum call depth ("
+                            + limits.maxCallDepth() + ") exceeded.");
         }
 
         callDepth++;
+
         try {
             return function.call(this, arguments);
         } finally {
@@ -200,9 +270,11 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     @Override
     public Void visitVarStmt(Stmt.Var stmt) {
         Object value = null;
+
         if (stmt.initializer() != null) {
             value = evaluate(stmt.initializer());
         }
+
         environment.define(stmt.name().lexeme(), value);
         return null;
     }
@@ -215,13 +287,15 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
 
     void executeBlock(List<Stmt> statements, Environment blockEnvironment) {
         Environment previous = this.environment;
+
         try {
             this.environment = blockEnvironment;
+
             for (Stmt statement : statements) {
                 execute(statement);
             }
         } finally {
-            this.environment = previous;   // always restore, even after an error or return
+            this.environment = previous;
         }
     }
 
@@ -232,6 +306,7 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
         } else if (stmt.elseBranch() != null) {
             execute(stmt.elseBranch());
         }
+
         return null;
     }
 
@@ -240,6 +315,7 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
         while (isTruthy(evaluate(stmt.condition()))) {
             execute(stmt.body());
         }
+
         return null;
     }
 
@@ -253,9 +329,11 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     @Override
     public Void visitReturnStmt(Stmt.Return stmt) {
         Object value = null;
+
         if (stmt.value() != null) {
             value = evaluate(stmt.value());
         }
+
         throw new ReturnSignal(value);
     }
 
@@ -286,9 +364,20 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
         if (left instanceof Double l && right instanceof Double r) {
             return l + r;
         }
+
         if (left instanceof String || right instanceof String) {
-            return stringify(left) + stringify(right);
+            String a = stringify(left);
+            String b = stringify(right);
+
+            if ((long) a.length() + b.length() > limits.maxStringLength()) {
+                throw new LimitExceededException(
+                        "String length limit exceeded ("
+                                + limits.maxStringLength() + " characters).");
+            }
+
+            return a + b;
         }
+
         throw new RuntimeError(op.line(),
                 "Operands must be two numbers or at least one string.");
     }
@@ -297,6 +386,7 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
         if (left instanceof Double && right instanceof Double) {
             return;
         }
+
         throw new RuntimeError(operator.line(), "Operands must be numbers.");
     }
 
@@ -313,20 +403,25 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     private boolean isEqual(Object a, Object b) {
         if (a == null && b == null) return true;
         if (a == null) return false;
+
         if (a instanceof Double x && b instanceof Double y) {
             return x.doubleValue() == y.doubleValue();
         }
+
         return a.equals(b);
     }
 
     public static String stringify(Object value) {
         if (value == null) return "null";
+
         if (value instanceof Double d) {
             if (d == Math.rint(d) && Math.abs(d) < 1e15) {
-                return String.valueOf(d.longValue());   // 4.0 prints as 4
+                return String.valueOf(d.longValue());
             }
+
             return d.toString();
         }
+
         return value.toString();
     }
 }
