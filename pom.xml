@@ -11,9 +11,9 @@
     <name>MiniLox Parent</name>
 
     <modules>
-        <module>minilox-core</module>
-    </modules>
-
+    <module>minilox-core</module>
+    <module>minilox-web</module>
+</modules>
     <properties>
         <maven.compiler.release>21</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
