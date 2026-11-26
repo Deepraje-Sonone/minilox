@@ -1,25 +1,19 @@
+
 package com.minilox;
 
-import com.minilox.ast.AstPrinter;
-import com.minilox.ast.Stmt;
-import com.minilox.error.MiniLoxException;
-import com.minilox.error.ParseException;
-import com.minilox.error.RuntimeError;
-import com.minilox.interpreter.Interpreter;
-import com.minilox.lexer.Lexer;
-import com.minilox.lexer.Token;
-import com.minilox.parser.Parser;
+import com.minilox.error.Diagnostic;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
+import java.util.function.Consumer;
 
 public class MiniLox {
 
     public static void main(String[] args) {
         boolean printAst = false;
         String path = null;
+
         for (String arg : args) {
             if (arg.equals("--ast")) {
                 printAst = true;
@@ -29,39 +23,38 @@ public class MiniLox {
         }
 
         if (path == null) {
-            System.out.println("Usage: java com.minilox.MiniLox [--ast] <script.mlox>");
+            System.out.println(
+                    "Usage: java com.minilox.MiniLox [--ast] <script.mlox>");
             return;
         }
 
+        String source;
+
         try {
-            String source = Files.readString(Path.of(path));
-            List<Token> tokens = new Lexer(source).scanTokens();
-
-            Parser parser = new Parser(tokens);
-            List<Stmt> statements = parser.parse();
-
-            if (!parser.getErrors().isEmpty()) {
-                for (ParseException error : parser.getErrors()) {
-                    System.err.println(error.report());
-                }
-                System.exit(65);
-            }
-
-            if (printAst) {
-                System.out.println(new AstPrinter().printProgram(statements));
-                return;
-            }
-
-            new Interpreter().interpret(statements);
+            source = Files.readString(Path.of(path));
         } catch (IOException e) {
             System.err.println("Could not read file: " + e.getMessage());
             System.exit(66);
-        } catch (RuntimeError e) {
-            System.err.println(e.report());
-            System.exit(70);
-        } catch (MiniLoxException e) {
-            System.err.println(e.report());
-            System.exit(65);
+            return;
+        }
+
+        MiniLoxRunner runner = new MiniLoxRunner();
+        Consumer<String> output = System.out::println;
+
+        RunResult result;
+
+        if (printAst) {
+            result = runner.dumpAst(source, output);
+        } else {
+            result = runner.run(source, output);
+        }
+
+        for (Diagnostic error : result.errors()) {
+            System.err.println(error.format());
+        }
+
+        if (!result.ok()) {
+            System.exit(result.exitCode());
         }
     }
 }

@@ -1,7 +1,6 @@
 
 package com.minilox.lexer;
 
-import com.minilox.error.LexerException;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -81,22 +80,38 @@ class LexerTest {
     }
 
     @Test
-    void unexpectedCharacterThrowsWithLine() {
-        LexerException exception = assertThrows(
-                LexerException.class,
-                () -> lex("let x = 1;\nlet y = @;"));
+    void unexpectedCharacterIsReportedWithLine() {
+        Lexer lexer = new Lexer("let x = 1;\nlet y = @;");
 
-        assertEquals(2, exception.getLine());
-        assertTrue(exception.getMessage().contains("@"));
+        lexer.scanTokens();
+
+        assertEquals(1, lexer.getErrors().size());
+        assertEquals(2, lexer.getErrors().get(0).getLine());
+        assertTrue(lexer.getErrors().get(0).getMessage().contains("@"));
     }
 
     @Test
-    void unterminatedStringThrows() {
-        LexerException exception = assertThrows(
-                LexerException.class,
-                () -> lex("print \"oops;"));
+    void unterminatedStringIsReported() {
+        Lexer lexer = new Lexer("print \"oops;");
 
-        assertEquals(1, exception.getLine());
+        lexer.scanTokens();
+
+        assertEquals(1, lexer.getErrors().size());
+        assertEquals(1, lexer.getErrors().get(0).getLine());
+    }
+
+    @Test
+    void lexerKeepsGoingAndReportsAllErrors() {
+        Lexer lexer = new Lexer("@ let x = 1; #");
+
+        List<Token> tokens = lexer.scanTokens();
+
+        assertEquals(2, lexer.getErrors().size());
+
+        assertEquals(
+                List.of(LET, IDENTIFIER, EQUAL, NUMBER, SEMICOLON, EOF),
+                tokens.stream().map(Token::type).toList()
+        );
     }
 
     @Test

@@ -27,6 +27,7 @@ public class Lexer {
 
     private final String source;
     private final List<Token> tokens = new ArrayList<>();
+    private final List<LexerException> errors = new ArrayList<>();
 
     private int start = 0;
     private int current = 0;
@@ -44,6 +45,10 @@ public class Lexer {
 
         tokens.add(new Token(TokenType.EOF, "", null, line));
         return tokens;
+    }
+
+    public List<LexerException> getErrors() {
+        return errors;
     }
 
     private void scanToken() {
@@ -87,8 +92,12 @@ public class Lexer {
                 } else if (isAlpha(c)) {
                     identifier();
                 } else {
-                    throw new LexerException(
-                            line, "Unexpected character '" + c + "'.");
+                    errors.add(
+                            new LexerException(
+                                    line,
+                                    "Unexpected character '" + c + "'."
+                            )
+                    );
                 }
             }
         }
@@ -105,7 +114,10 @@ public class Lexer {
         }
 
         if (isAtEnd()) {
-            throw new LexerException(startLine, "Unterminated string.");
+            errors.add(
+                    new LexerException(startLine, "Unterminated string.")
+            );
+            return;
         }
 
         advance();

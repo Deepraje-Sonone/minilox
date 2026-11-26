@@ -1,9 +1,11 @@
+
 package com.minilox;
 
 import com.minilox.ast.Stmt;
 import com.minilox.error.RuntimeError;
 import com.minilox.interpreter.Interpreter;
 import com.minilox.lexer.Lexer;
+import com.minilox.lexer.Token;
 import com.minilox.parser.Parser;
 
 import java.util.ArrayList;
@@ -18,8 +20,15 @@ public final class TestSupport {
 
     /** Runs MiniLox source and returns everything it printed, one line per print. */
     public static String run(String source) {
-        Parser parser = new Parser(new Lexer(source).scanTokens());
+        Lexer lexer = new Lexer(source);
+        List<Token> tokens = lexer.scanTokens();
+
+        assertTrue(lexer.getErrors().isEmpty(),
+                () -> "Unexpected lexer errors: " + lexer.getErrors());
+
+        Parser parser = new Parser(tokens);
         List<Stmt> statements = parser.parse();
+
         assertTrue(parser.getErrors().isEmpty(),
                 () -> "Unexpected parse errors: " + parser.getErrors());
 
