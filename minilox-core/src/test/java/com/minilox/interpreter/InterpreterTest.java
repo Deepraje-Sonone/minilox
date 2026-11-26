@@ -142,4 +142,31 @@ void stringConcatenationIsLeftAssociativeWithStringFirst() {
 void stringConcatenationIsLeftAssociativeWithStringLast() {
     assertEquals("3a", run("print 1 + 2 + \"a\";"));
 }
+@Test
+void functionWithoutParameters() {
+    assertEquals("Hello", run(
+            "fn greet() { print \"Hello\"; } greet();"
+    ));
+}
+
+@Test
+void functionWithParameters() {
+    assertEquals("15", run(
+            "fn add(a, b) { print a + b; } add(10, 5);"
+    ));
+}
+
+@Test
+void functionReturnsValue() {
+    assertEquals("15", run(
+            "fn add(a, b) { return a + b; } print add(10, 5);"
+    ));
+}
+@Test
+void functionReturnsNullByDefault() {
+    assertEquals("null", run(
+            "fn greet() {} print greet();"
+    ));
+}
+
 }

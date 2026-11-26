@@ -128,4 +128,13 @@ class ParserTest {
         assertEquals(1, parser.getErrors().get(0).getLine());
         assertEquals(2, parser.getErrors().get(1).getLine());
     }
+    @Test
+void topLevelReturnIsReported() {
+    Parser parser = parserFor("return 5;");
+    parser.parse();
+
+    assertEquals(1, parser.getErrors().size());
+    assertTrue(parser.getErrors().get(0).getMessage()
+            .contains("Can't return from top-level code."));
+}
 }
