@@ -1,0 +1,12 @@
+let a = "global a";
+let b = "global b";
+{
+  let a = "outer a";
+  {
+    let a = "inner a";
+    print a;
+    print b;
+  }
+  print a;
+}
+print a;
