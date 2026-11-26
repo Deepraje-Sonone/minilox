@@ -1,0 +1,736 @@
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  background: #0b1120;
+}
+
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #0b1120;
+}
+
+/* Header */
+
+.topbar {
+  min-height: 76px;
+  padding: 0 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: #111827;
+  border-bottom: 1px solid #253047;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.brand-icon {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border-radius: 12px;
+  background: #2563eb;
+  color: white;
+  font-size: 23px;
+  font-weight: 800;
+}
+
+.brand h1 {
+  margin: 0;
+  font-size: 20px;
+  color: #f8fafc;
+}
+
+.brand span {
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.language-label,
+.version-label {
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.version-label {
+  padding: 5px 9px;
+  background: #1e293b;
+  border-radius: 6px;
+}
+
+/* Workspace */
+
+.workspace {
+  flex: 1;
+  min-height: 600px;
+  padding: 24px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(300px, 1fr);
+  gap: 20px;
+}
+
+.editor-section,
+.output-section {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #263449;
+  border-radius: 12px;
+  background: #111827;
+}
+
+/* Panel headers */
+
+.panel-header,
+.output-header {
+  min-height: 58px;
+  flex-shrink: 0;
+  padding: 0 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid #263449;
+}
+
+.panel-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #e2e8f0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.file-icon {
+  color: #60a5fa;
+  font-weight: bold;
+}
+
+.terminal-icon {
+  color: #34d399;
+  font-size: 18px;
+}
+
+/* Buttons */
+
+.editor-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+button {
+  border: none;
+  cursor: pointer;
+  border-radius: 7px;
+  font-size: 13px;
+  padding: 9px 14px;
+  transition: background 0.2s ease;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.reset-button,
+.clear-button {
+  color: #cbd5e1;
+  background: #263449;
+}
+
+.reset-button:hover:not(:disabled),
+.clear-button:hover:not(:disabled) {
+  background: #334155;
+}
+
+.run-button {
+  color: white;
+  background: #16a34a;
+  font-weight: 600;
+}
+
+.run-button:hover:not(:disabled) {
+  background: #15803d;
+}
+
+/* Examples */
+
+.example-select {
+  min-width: 0;
+  max-width: 180px;
+  padding: 9px 12px;
+  border: 1px solid #334155;
+  border-radius: 7px;
+  background: #1e293b;
+  color: #cbd5e1;
+  font-size: 12px;
+  cursor: pointer;
+  outline: none;
+}
+
+.example-select:hover,
+.example-select:focus {
+  border-color: #60a5fa;
+}
+
+.example-select option {
+  background: #111827;
+  color: #f8fafc;
+}
+
+/* Editor */
+
+.editor-container {
+  flex: 1;
+  min-height: 400px;
+  min-width: 0;
+  padding-top: 5px;
+  overflow: hidden;
+}
+
+.editor-footer,
+.output-footer {
+  min-height: 34px;
+  flex-shrink: 0;
+  padding: 0 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  color: #64748b;
+  font-size: 11px;
+  border-top: 1px solid #263449;
+}
+
+/* Output panel */
+
+.output-section {
+  min-height: 400px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.output-header {
+  min-height: 58px;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.clear-button {
+  flex-shrink: 0;
+  min-width: 62px;
+  position: relative;
+  z-index: 2;
+}
+
+.output-content {
+  flex: 1 1 auto;
+  min-height: 220px;
+  min-width: 0;
+  padding: 20px;
+  color: #cbd5e1;
+  font-family: Consolas, monospace;
+  font-size: 13px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+}
+
+.output-status {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #94a3b8;
+  font-family: Arial, sans-serif;
+  font-size: 12px;
+  margin-bottom: 20px;
+}
+
+.output-content pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.8;
+  margin: 0;
+}
+
+.error-output {
+  color: #fca5a5;
+}
+
+.success-output {
+  color: #cbd5e1;
+}
+
+.console-empty {
+  min-height: 180px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
+  color: #64748b;
+}
+
+.console-empty p {
+  margin: 0;
+  color: #cbd5e1;
+  font-size: 14px;
+}
+
+.console-empty span {
+  font-size: 12px;
+}
+
+.console-empty .empty-icon {
+  font-size: 28px;
+  color: #60a5fa;
+}
+
+.execution-time {
+  margin-top: 20px;
+  color: #34d399;
+  font-size: 12px;
+}
+
+/* Status indicators */
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #64748b;
+  flex-shrink: 0;
+}
+
+.status-dot.success {
+  background: #22c55e;
+}
+
+.status-dot.syntax-error,
+.status-dot.runtime-error,
+.status-dot.execution-limit,
+.status-dot.internal-error,
+.status-dot.connection-failed,
+.status-dot.error {
+  background: #ef4444;
+}
+
+.status-dot.running {
+  background: #f59e0b;
+  animation: statusPulse 1s infinite;
+}
+
+@keyframes statusPulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* Footer */
+
+.app-footer {
+  min-height: 45px;
+  padding: 0 30px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #64748b;
+  font-size: 11px;
+  border-top: 1px solid #263449;
+}
+
+/* Tablet */
+
+@media (max-width: 1000px) {
+  .workspace {
+    grid-template-columns: minmax(0, 1.3fr) minmax(280px, 1fr);
+    padding: 18px;
+    gap: 14px;
+  }
+
+  .panel-header,
+  .output-header {
+    padding: 0 12px;
+  }
+
+  .editor-actions {
+    gap: 7px;
+  }
+
+  .example-select {
+    max-width: 145px;
+  }
+}
+
+@media (max-width: 850px) {
+  .workspace {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 14px;
+    gap: 14px;
+  }
+
+  .editor-section {
+    min-height: 520px;
+  }
+
+  .output-section {
+    min-height: 380px;
+  }
+
+  .editor-container {
+    min-height: 400px;
+  }
+
+  .output-content {
+    min-height: 260px;
+  }
+}
+
+/* Mobile */
+
+@media (max-width: 600px) {
+  .topbar {
+    min-height: 66px;
+    padding: 10px 14px;
+  }
+
+  .brand {
+    gap: 9px;
+  }
+
+  .brand-icon {
+    width: 36px;
+    height: 36px;
+    font-size: 19px;
+  }
+
+  .brand h1 {
+    font-size: 17px;
+  }
+
+  .brand span {
+    font-size: 10px;
+  }
+
+  .header-right {
+    gap: 6px;
+  }
+
+  .language-label {
+    display: none;
+  }
+
+  .version-label {
+    font-size: 10px;
+    padding: 4px 7px;
+  }
+
+  .workspace {
+    padding: 10px;
+    gap: 12px;
+  }
+
+  .editor-section {
+    min-height: 490px;
+  }
+
+  .output-section {
+    min-height: 360px;
+  }
+
+  .panel-header {
+    padding: 10px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .output-header {
+    min-height: 58px;
+    padding: 10px 12px;
+    flex-wrap: nowrap;
+  }
+
+  .editor-actions {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+  }
+
+  .example-select {
+    flex: 1;
+    max-width: none;
+    min-width: 110px;
+    padding: 8px;
+    font-size: 11px;
+  }
+
+  .reset-button,
+  .run-button,
+  .clear-button {
+    padding: 8px 10px;
+    font-size: 11px;
+  }
+
+  .editor-container {
+    min-height: 350px;
+  }
+
+  .output-content {
+    min-height: 260px;
+    padding: 14px;
+    font-size: 12px;
+  }
+
+  .console-empty {
+    min-height: 150px;
+  }
+
+  .editor-footer,
+  .output-footer {
+    padding: 0 9px;
+    font-size: 10px;
+  }
+
+  .app-footer {
+    min-height: 45px;
+    padding: 10px;
+    gap: 8px;
+    font-size: 10px;
+  }
+}
+
+/* Extra small mobile */
+
+@media (max-width: 380px) {
+  .topbar {
+    padding: 9px;
+  }
+
+  .brand h1 {
+    font-size: 15px;
+  }
+
+  .brand span {
+    font-size: 9px;
+  }
+
+  .version-label {
+    font-size: 9px;
+  }
+
+  .workspace {
+    padding: 7px;
+  }
+
+  .editor-actions {
+    gap: 5px;
+  }
+
+  .example-select {
+    width: 100%;
+    flex-basis: 100%;
+  }
+
+  .reset-button,
+  .run-button {
+    flex: 1;
+  }
+
+  .output-header {
+    padding: 10px;
+  }
+
+  .clear-button {
+    flex-shrink: 0;
+  }
+
+  .editor-footer,
+  .output-footer {
+    font-size: 9px;
+    padding: 0 7px;
+  }
+
+  .app-footer {
+    font-size: 9px;
+  }
+}
+/* Phase 12.8 - Mobile page scrolling fix */
+
+@media (max-width: 850px) {
+  html,
+  body,
+  #root {
+    height: auto;
+    min-height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .app {
+    min-height: 100vh;
+    height: auto;
+    overflow: visible;
+  }
+
+  .workspace {
+    flex: none;
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .editor-section,
+  .output-section {
+    height: auto;
+    overflow: visible;
+  }
+
+  .editor-section {
+    min-height: 490px;
+  }
+
+  .output-section {
+    min-height: 360px;
+  }
+
+  .editor-container {
+    min-height: 350px;
+    flex: 1;
+  }
+
+  .output-content {
+    min-height: 260px;
+    flex: 1;
+  }
+
+  .output-header,
+  .output-footer,
+  .editor-footer {
+    flex-shrink: 0;
+  }
+}
+/* Phase 12.8 - Force mobile page scrolling */
+
+@media (max-width: 850px) {
+  html,
+  body,
+  #root {
+    width: 100%;
+    height: auto !important;
+    min-height: 100vh;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+  }
+
+  body {
+    position: relative;
+  }
+
+  #root,
+  .app {
+    display: block;
+    height: auto !important;
+    min-height: 100vh;
+    overflow: visible !important;
+  }
+
+  .workspace {
+    display: flex;
+    flex-direction: column;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+
+  .editor-section,
+  .output-section {
+    display: flex;
+    flex-direction: column;
+    flex: none;
+    width: 100%;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  .editor-section {
+    min-height: 490px;
+  }
+
+  .output-section {
+    min-height: 360px;
+  }
+
+  .editor-container {
+    flex: none;
+    height: 350px;
+    min-height: 350px;
+  }
+
+  .output-content {
+    flex: none;
+    min-height: 260px;
+    max-height: none;
+    overflow-y: visible;
+  }
+
+  .app-footer {
+    margin-top: 10px;
+  }
+}
+
+/* Phase 12.8 - Fix excessive editor height on tablet and mobile */
+
+@media (max-width: 850px) {
+  .editor-section {
+    flex: 0 0 450px !important;
+    height: 450px !important;
+    min-height: 450px !important;
+  }
+
+  .editor-container {
+    flex: 0 0 350px !important;
+    height: 350px !important;
+    min-height: 350px !important;
+    max-height: 350px !important;
+    overflow: hidden;
+  }
+
+  .output-section {
+    flex: 0 0 360px !important;
+    height: 360px !important;
+    min-height: 360px !important;
+  }
+}
